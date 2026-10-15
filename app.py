@@ -1,13 +1,12 @@
 import os
 import json
+import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 
 # Khởi tạo Firebase Admin SDK
-# Trên Render, chúng ta sẽ lưu nội dung file JSON của Firebase vào biến môi trường FIREBASE_CREDENTIALS_JSON
-# để bảo mật tuyệt đối, tránh lộ key lên GitHub.
 firebase_json_str = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
 if firebase_json_str:
@@ -15,7 +14,6 @@ if firebase_json_str:
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 else:
-    # Trường hợp chạy local test bằng file serviceAccountKey.json
     if os.path.exists("serviceAccountKey.json"):
         cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
@@ -23,7 +21,7 @@ else:
         raise ValueError("Chưa cấu hình thông tin xác thực Firebase cho Admin SDK!")
 
 app = Flask(__name__)
-CORS(app) # Cho phép Frontend của bạn gọi API từ tên miền khác
+CORS(app)
 
 @app.route('/', methods=['GET'])
 def home():
@@ -50,7 +48,6 @@ def delete_user():
             auth.delete_user(user_record.uid)
             deleted_auth = True
         except firebase_admin.auth.UserNotFoundError:
-            # Không tìm thấy trong Auth nhưng có thể vẫn còn trên Firestore
             pass
             
         # 2. Xóa document trong Firestore (collection allowed_users)
@@ -69,6 +66,8 @@ def delete_user():
         })
         
     except Exception as e:
+        # In chi tiết lỗi ra terminal/log của Render để dễ dàng debug
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
